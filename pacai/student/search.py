@@ -15,32 +15,34 @@ def depthFirstSearch(problem):
 
     To get started, you might want to try some of these simple commands to
     understand the search problem that is being passed in:
-    ```
-    print("Start: %s" % (str(problem.startingStaet())))
+    
+print("Start: %s" % (str(problem.startingStaet())))
     print("Is the start a goal?: %s" % (problem.isGoal(problem.startingState())))
     print("Start's successors: %s" % (problem.successorStates(problem.startingState())))
-    ```
+
     """
 
-
-
     # *** Your Code Here ***
+    visited = set()
     fringe = Stack()
-    seen = set()
-    
 
     fringe.push((problem.startingState(), [], 0))
+
     while not fringe.isEmpty():
-        curr, moves, cost = fringe.pop()  
-        if (problem.isGoal(curr)):
-            return moves
-        if curr not in seen:
-            seen.add(curr)
-            succ = problem.successorStates(curr)
-            for (next, move, noCost) in succ:  
-                if next not in seen:
-                    nextMoves = moves + [move]
-                    fringe.push((next, nextMoves, noCost))
+        current_state, actions, cost = fringe.pop()
+
+        if current_state in visited:
+            continue
+
+        visited.add(current_state)
+
+        if problem.isGoal(current_state):
+            return actions
+
+        for state, action, cost in problem.successorStates(current_state):
+            if state not in visited:
+                new_actions = actions + [action]
+                fringe.push((state, new_actions, 0))  # cost is irrelevant in DFS
 
     return []
 
@@ -49,21 +51,26 @@ def breadthFirstSearch(problem):
     Search the shallowest nodes in the search tree first. [p 81]
     """
 
-    # *** Your Code Here ***
-    fringe = Queue()
-    seen = set()
+    fringe = Queue()  # frontier for bfs is queue
+    visited = set()
     fringe.push((problem.startingState(), [], 0))
-    while not fringe.isEmpty():
-        curr, moves, cost = fringe.pop() 
-        if (problem.isGoal(curr)):
+
+    while not fringe.isEmpty():  # iterate until goal is reached or all possibilities exhausted
+        curr, moves, cost = fringe.pop()
+
+        if problem.isGoal(curr):  # return moves leading to the goal
             return moves
-        if curr not in seen:
-            seen.add(curr)
-            succ = problem.successorStates(curr)
-            for (next, move, noCost) in succ:  
-                nextMoves = moves + [move]
-                fringe.push((next, nextMoves, noCost))
-    return []
+
+        if curr not in visited:  # expand unexplored nodes
+            visited.add(curr)
+
+            for next_state, action, cost in problem.successorStates(curr):
+                if next_state not in visited:
+                    updated_moves = moves + [action]
+                    fringe.push((next_state, updated_moves, 0))
+
+    return []  # return empty list if no solution is found
+
 
 def uniformCostSearch(problem):
     """
@@ -71,44 +78,51 @@ def uniformCostSearch(problem):
     """
 
     # *** Your Code Here ***
-    seen = set()
-    fringe = PriorityQueue()
+    fringe = PriorityQueue()  # frontier is priority q
+    cost_so_far = {}  # dictionary for lowest cost
 
-    fringe.push((problem.startingState(), []), 0)
+    start_state = problem.startingState()
+    fringe.push((start_state, [], 0), 0)
+    cost_so_far[start_state] = 0
+
     while not fringe.isEmpty():
-        curr, moves = fringe.pop()  
-        if (problem.isGoal(curr)):
+        curr, moves, currCost = fringe.pop()
+
+        if problem.isGoal(curr):  # return moves for lowest goal
             return moves
-        if curr not in seen:
-            seen.add(curr)
-            succ = problem.successorStates(curr)
-            for (next, move, cost) in succ:
-                if next not in seen:
-                    nextMoves = moves + [move]
-                    fringe.push((next, nextMoves), cost)
+
+        for next_state, move, step_cost in problem.successorStates(curr):  # expand nodes
+            new_cost = currCost + step_cost
+
+            if next_state not in cost_so_far or new_cost < cost_so_far[next_state]:
+                cost_so_far[next_state] = new_cost
+                next_moves = moves + [move]
+                fringe.push((next_state, next_moves, new_cost), new_cost)
+
     return []
 
 def aStarSearch(problem, heuristic):
     """
-    Search the node that has the lowest combined cost and heuristic first.
+    Search the node that has the lowest combined cost and heuristic first (A* search).
     """
     fringe = PriorityQueue()
-    seen = set()
-    # *** Your Code Here ***
-    fringe.push((problem.startingState(), [], 0), 0)
-    while not fringe.isEmpty():
-        curr, moves, currCost = fringe.pop()  # store information at the front of the fringe
-        if (problem.isGoal(curr)):
-            return moves
-        if curr not in seen:
-            seen.add(curr)
-            succ = problem.successorStates(curr)
-            for (next, move, cost) in succ:
-                if next not in seen:
-                    nextMoves = moves + [move]
-                    # iterate on previous calculation to contain current cost
-                    costSoFar = currCost + cost + heuristic(next, problem)
+    visited = {}
+    start_state = problem.startingState()
+    # push the start state with cost 0 and heuristic
+    fringe.push((start_state, [], 0), heuristic(start_state, problem))
+    visited[start_state] = 0
 
-                    fringe.push((next, nextMoves, costSoFar), costSoFar)
+    while not fringe.isEmpty():
+        curr, moves, currCost = fringe.pop()
+        # check if goal state reached
+        if problem.isGoal(curr):
+            return moves
+        for next_state, move, step_cost in problem.successorStates(curr):
+            new_cost = currCost + step_cost
+            # only consider this successor if it's not visited or has a lower cost path
+            if next_state not in visited or new_cost < visited[next_state]:
+                visited[next_state] = new_cost  # update cost
+                priority = new_cost + heuristic(next_state, problem)
+                fringe.push((next_state, moves + [move], new_cost), priority)
 
     return []

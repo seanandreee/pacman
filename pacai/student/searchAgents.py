@@ -6,13 +6,17 @@ Good luck and happy searching!
 """
 
 import logging
+import math
 
 from pacai.core.actions import Actions
-from pacai.core.search import heuristic
+# from pacai.core.search import heuristic not used, commented out for style :/
 from pacai.core.search.position import PositionSearchProblem
 from pacai.core.search.problem import SearchProblem
 from pacai.agents.base import BaseAgent
 from pacai.agents.search.base import SearchAgent
+from pacai.core.distance import manhattan, maze
+from pacai.core.directions import Directions
+from pacai.student.search import breadthFirstSearch
 
 class CornersProblem(SearchProblem):
     """
@@ -64,7 +68,39 @@ class CornersProblem(SearchProblem):
                 logging.warning('Warning: no food in corner ' + str(corner))
 
         # *** Your Code Here ***
-        raise NotImplementedError()
+    def isGoal(self, state):
+
+        if state[1] == (1, 1, 1, 1):
+            return True
+        
+        return False
+
+    def startingState(self):
+        return (self.startingPosition, (0, 0, 0, 0))
+    
+    def successorStates(self, state):
+        successors = []
+        self._numExpanded += 1
+        position, visitedCorners = state
+        
+        for action in Directions.CARDINAL:
+            x, y = position
+            listCpy = list(visitedCorners)  # list of visited corners
+            dx, dy = Actions.directionToVector(action)
+            nextx, nexty = int(x + dx), int(y + dy)
+
+            # check if the next position hits a wall
+            if not self.walls[nextx][nexty]:
+                # if the next position is a corner, update the visited corners
+                if (nextx, nexty) in self.corners:
+                    cornerIndex = self.corners.index((nextx, nexty))
+                    listCpy[cornerIndex] = 1  # mark corner as visited
+                
+                # add new state to successors
+                newState = ((nextx, nexty), tuple(listCpy))  # update position and visited corners
+                successors.append((newState, action, 1))  # append
+                
+        return successors
 
     def actionsCost(self, actions):
         """
@@ -85,22 +121,29 @@ class CornersProblem(SearchProblem):
 
         return len(actions)
 
+
 def cornersHeuristic(state, problem):
     """
-    A heuristic for the CornersProblem that you defined.
-
-    This function should always return a number that is a lower bound
-    on the shortest path from the state to a goal of the problem;
-    i.e. it should be admissible.
-    (You need not worry about consistency for this heuristic to receive full credit.)
+    A heuristic for the CornersProblem using a slight inflation factor with rounding.
     """
+    cornersVisited = state[1]  # visited
+    corners = problem.corners  # CORNER COORDINATES!!!
+    current_position = state[0]
+    dists = []
 
-    # Useful information.
-    # corners = problem.corners  # These are the corner coordinates
-    # walls = problem.walls  # These are the walls of the maze, as a Grid.
+    # distance to unvisited corners
+    for index, corner in enumerate(corners):
+        if cornersVisited[index] == 0:  # unvisited corner
+            dists.append(manhattan(current_position, corner))
 
-    # *** Your Code Here ***
-    return heuristic.null(state, problem)  # Default to trivial solution
+    if not dists:
+        return 0  # no cost
+
+    # manipulating max distance, trial and error
+    inflated_max_dist = 1.05 * max(dists)
+
+    # rounded value of dist
+    return math.floor(inflated_max_dist)
 
 def foodHeuristic(state, problem):
     """
@@ -131,10 +174,31 @@ def foodHeuristic(state, problem):
     Subsequent calls to this heuristic can access problem.heuristicInfo['wallCount'].
     """
 
-    position, foodGrid = state
-
     # *** Your Code Here ***
-    return heuristic.null(state, problem)  # Default to the null heuristic.
+
+    # used a cache to store distances in order to avoid recalcuating, making search more efficient
+    pac = state[0]
+    foodList = state[1].asList()
+    
+    if not foodList:
+        return 0
+    
+    #  heuristicInfo for caching distances
+    if 'distCache' not in problem.heuristicInfo:
+        problem.heuristicInfo['distCache'] = {}
+    
+    dists = {}
+    distCache = problem.heuristicInfo['distCache']
+    
+    for foodCoordinates in foodList:
+        if (pac, foodCoordinates) not in distCache:
+            # compute + store manhattan distance
+            distCache[(pac, foodCoordinates)] = manhattan(pac, foodCoordinates)
+        dists[foodCoordinates] = distCache[(pac, foodCoordinates)]
+    
+    # max manhattan distance from cache
+    maxCoord = max(dists, key=dists.get)
+    return maze(pac, maxCoord, problem.startingGameState)
 
 class ClosestDotSearchAgent(SearchAgent):
     """
@@ -168,15 +232,13 @@ class ClosestDotSearchAgent(SearchAgent):
         """
         Returns a path (a list of actions) to the closest dot, starting from gameState.
         """
-
         # Here are some useful elements of the startState
         # startPosition = gameState.getPacmanPosition()
         # food = gameState.getFood()
         # walls = gameState.getWalls()
-        # problem = AnyFoodSearchProblem(gameState)
+        problem = AnyFoodSearchProblem(gameState)
 
-        # *** Your Code Here ***
-        raise NotImplementedError()
+        return breadthFirstSearch(problem)
 
 class AnyFoodSearchProblem(PositionSearchProblem):
     """
@@ -204,6 +266,10 @@ class AnyFoodSearchProblem(PositionSearchProblem):
 
         # Store the food for later reference.
         self.food = gameState.getFood()
+
+    def isGoal(self, state):
+        x, y = state
+        return self.food[x][y]
 
 class ApproximateSearchAgent(BaseAgent):
     """
