@@ -12,7 +12,7 @@ class Actions:
         Directions.SOUTH: (0, -1),
         Directions.EAST: (1, 0),
         Directions.WEST: (-1, 0),
-        Directions.STOP: (0, 0),
+        #Directions.STOP: (0, 0),
     }
 
     _directionsAsList = sorted(list(_directions.items()))
@@ -43,8 +43,8 @@ class Actions:
             return Directions.WEST
         elif (dx > 0):
             return Directions.EAST
-        else:
-            return Directions.STOP
+        #else:
+            #return Directions.STOP
 
     @staticmethod
     def directionToVector(direction, speed = 1.0):

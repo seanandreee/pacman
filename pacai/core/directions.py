@@ -17,7 +17,7 @@ class Directions:
         SOUTH: EAST,
         EAST: NORTH,
         WEST: SOUTH,
-        STOP: STOP,
+        #STOP: STOP,
     }
 
     RIGHT = dict([(y, x) for x, y in sorted(list(LEFT.items()))])
@@ -27,7 +27,7 @@ class Directions:
         SOUTH: NORTH,
         EAST: WEST,
         WEST: EAST,
-        STOP: STOP
+        #STOP: STOP
     }
 
     CARDINAL = [

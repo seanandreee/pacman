@@ -130,9 +130,52 @@ class MinimaxAgent(MultiAgentSearchAgent):
     and `pacai.agents.search.multiagent.MultiAgentSearchAgent.getEvaluationFunction`.
     """
 
+
     def __init__(self, index, **kwargs):
         super().__init__(index, **kwargs)
 
+    def minimax(self, state, depth, agentIdx):
+        # Terminal state
+        if state.isWin() or state.isLose() or depth == self.getTreeDepth():
+            return self.getEvaluationFunction()(state), None
+
+        # Maximizing function
+        if agentIdx == 0:
+            maxValue = -float('inf')
+            bestAction = None
+            for action in state.getLegalActions(agentIdx):
+                if action == Directions.STOP:  # Ignoring Directions.STOP as instructed
+                    continue
+                successor = state.generateSuccessor(agentIdx, action)
+                value, _ = self.minimax(successor, depth, agentIdx + 1)
+                if value > maxValue:
+                    maxValue = value
+                    bestAction = action
+            return maxValue, bestAction
+        else:
+            # Minimizing function
+            minValue = float('inf')
+            bestAction = None
+            nextAgentIdx = agentIdx + 1
+            if nextAgentIdx >= state.getNumAgents():
+                nextAgentIdx = 0  # Pacman goes after the last ghost
+                depth += 1       # Increase depth when all agents have moved
+
+            for action in state.getLegalActions(agentIdx):
+                if action == Directions.STOP:
+                    continue
+                successor = state.generateSuccessor(agentIdx, action)
+                value, _ = self.minimax(successor, depth, nextAgentIdx)
+                if value < minValue:
+                    minValue = value
+                    bestAction = action
+            return minValue, bestAction
+
+    def getAction(self, state):
+        _, action = self.minimax(state, 0, 0)
+        return action
+
+    
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
     A minimax agent with alpha-beta pruning.
