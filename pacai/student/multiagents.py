@@ -2,6 +2,10 @@ import random
 
 from pacai.agents.base import BaseAgent
 from pacai.agents.search.multiagent import MultiAgentSearchAgent
+from pacai.core.distance import manhattan
+from pacai.core.directions import Directions
+from math import inf
+
 
 class ReflexAgent(BaseAgent):
     """
@@ -52,12 +56,51 @@ class ReflexAgent(BaseAgent):
 
         # Useful information you can extract.
         # newPosition = successorGameState.getPacmanPosition()
-        # oldFood = currentGameState.getFood()
-        # newGhostStates = successorGameState.getGhostStates()
-        # newScaredTimes = [ghostState.getScaredTimer() for ghostState in newGhostStates]
+        oldFood = currentGameState.getFood()
+        newGhostStates = successorGameState.getGhostStates()
+        newScaredTimes = [ghostState.getScaredTimer() for ghostState in newGhostStates]
 
         # *** Your Code Here ***
+        oldPosition = currentGameState.getPacmanPosition()
+        newPosition = successorGameState.getPacmanPosition()
+        newFood = successorGameState.getFood()
+        oldGhostStates = currentGameState.getGhostStates()
+        oldScaredTimes = [ghostState.getScaredTimer() for ghostState in oldGhostStates]
 
+        # Calculate oldFoodMinDist without list comprehension
+        oldFoodMinDist = float('inf')
+        for food in oldFood:
+            distance = manhattan(oldPosition, food)
+            if distance < oldFoodMinDist:
+                oldFoodMinDist = distance
+
+        # Calculate newFoodMinDist without list comprehension
+        newFoodMinDist = float('inf')
+        for food in newFood:
+            distance = manhattan(newPosition, food)
+            if distance < newFoodMinDist:
+                newFoodMinDist = distance
+
+
+        for food in oldFood:
+            if food not in newFood:
+                successorGameState.addScore(7)
+        
+        if newFoodMinDist < oldFoodMinDist: # Add 3 points if pacman moves towards food
+            successorGameState.addScore(3)
+
+        for ghost in newGhostStates:
+            newDist = manhattan(newPosition, ghost.getPosition())
+            score = 0
+            if not ghost.isBraveGhost():
+                score += 10 / (newDist + 1) # Higher reward if closer to a scare ghost
+                successorGameState.addScore(score)
+            else:
+                score -= 100 * (0.9 ** newDist) # Heavy penalty for nearby ghosts that aren't scared
+                successorGameState.addScore(score)
+        '''
+        exponential system that penalizes moving towards ghosts that arent scared - timing is irrelevant
+        '''
         return successorGameState.getScore()
 
 class MinimaxAgent(MultiAgentSearchAgent):
