@@ -51,43 +51,46 @@ class ReflexAgent(BaseAgent):
         minimal penalties for ghost proximity, while discouraging repetitive moves.
         """
         successorGameState = currentGameState.generatePacmanSuccessor(action)
-        newPos = successorGameState.getPacmanPosition()
+        newPosition = successorGameState.getPacmanPosition()
+        oldPosition = currentGameState.getPacmanPosition()
         newFood = successorGameState.getFood().asList()
+        oldFood = currentGameState.getFood().asList()
         newGhostStates = successorGameState.getGhostStates()
-        
-        # Initialize score
-        score = successorGameState.getScore()
+        newScaredTimes = [ghostState.getScaredTimer() for ghostState in newGhostStates]
 
-        # 1. Strong Reward for Moving Toward Food
-        if newFood:
-            minFoodDist = min([manhattan(newPos, food) for food in newFood])
-            score += 50.0 / (minFoodDist + 1)  # Strong reward for getting closer to food.
+        score = successorGameState.getScore()  # Base score
 
-        # 2. Reduced Penalty for Ghost Avoidance
-        for ghostState in newGhostStates:
-            ghostPos = ghostState.getPosition()
-            ghostDist = manhattan(newPos, ghostPos)
-            
-            if ghostState.isBraveGhost() and ghostDist < 3:  # Only avoid ghosts when very close.
-                score -= 2 / (ghostDist + 1)  # Minimal penalty for ghost proximity.
+        # Reward for eating food pellets
+        for food in oldFood:
+            if food not in newFood:  # Food was eaten
+                score += 10
 
-            elif not ghostState.isBraveGhost() and ghostDist < 3:  # Reward chasing scared ghosts.
-                score += 100 / (ghostDist + 1)  # Very strong reward for reaching scared ghosts.
+        # Reward for moving closer to food
+        if newFood:  # Ensure there's still food to evaluate
+            oldFoodMinDist = min([manhattan(oldPosition, food) for food in oldFood])
+            newFoodMinDist = min([manhattan(newPosition, food) for food in newFood])
+            if newFoodMinDist < oldFoodMinDist:  # Moving closer to food
+                score += 5
 
-        # 3. Stronger Reward for Power Pellet Collection
-        capsules = currentGameState.getCapsules()
-        if capsules:
-            minCapsuleDist = min([manhattan(newPos, capsule) for capsule in capsules])
-            score += 60.0 / (minCapsuleDist + 1)  # Reward for moving closer to power pellets.
+        # Penalize proximity to active ghosts
+        for ghostIdx in range(len(newGhostStates)):
+            ghost = newGhostStates[ghostIdx]
+            ghostDistance = manhattan(newPosition, ghost.getPosition())
 
-        # 4. Discourage Repeating Positions
-        # Penalize moves that lead back to a recent position
-        if newPos in self.recentPositions:
-            score -= 10  # Penalty for revisiting recent positions to avoid stalling.
+            if ghost.isBraveGhost() and ghostDistance < 6:  # Only penalize active ghosts
+                score -= 20
 
-        # 5. Minimal Penalty for STOP Action
-        if action == Directions.STOP:
-            score -= 0.5  # Small penalty to encourage movement but allow occasional stops.
+        # Reward for moving closer to scared ghosts
+        for ghostIdx in range(len(newGhostStates)):
+            ghost = newGhostStates[ghostIdx]
+            ghostDistance = manhattan(newPosition, ghost.getPosition())
+            scareTime = newScaredTimes[ghostIdx]
+
+            if not ghost.isBraveGhost():  # Ghost is scared
+                if scareTime < 5:  # Minor penalty if the ghost will soon recover
+                    score -= 5
+                elif ghostDistance < manhattan(oldPosition, ghost.getPosition()):
+                    score += 1
 
         return score
 
@@ -278,12 +281,47 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
 
 def betterEvaluationFunction(currentGameState):
     """
-    Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable evaluation function.
+    An extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable evaluation function.
 
-    DESCRIPTION: <write something here so we know what you did>
+    Description:
+    This was actually the first implementation I had of ReflexAgent.evalueationFunction(),
+    which didn't score full points on the autograder so I decided not to use it so here it is.
+    It utilizes a basic exponential system which heavily rewards PacMan for moving towards
+    food and eating it, moving towards scared ghosts and eating them, moving towards
+    power pellets and eating them, but punishes PacmMan for being near ghosts.
     """
 
-    return currentGameState.getScore()
+    # Extract useful information from the current game state.
+    newPos = currentGameState.getPacmanPosition()
+    newFood = currentGameState.getFood().asList()
+    newGhostStates = currentGameState.getGhostStates()
+    
+    # Initialize score with the current game score
+    score = currentGameState.getScore()
+
+    # 1. Strong Reward for Moving Toward Food
+    if newFood:
+        minFoodDist = min([manhattan(newPos, food) for food in newFood])
+        score += 50.0 / (minFoodDist + 1)  # Strong reward for getting closer to food.
+
+    # 2. Reduced Penalty for Ghost Avoidance
+    for ghostState in newGhostStates:
+        ghostPos = ghostState.getPosition()
+        ghostDist = manhattan(newPos, ghostPos)
+        
+        if ghostState.isBraveGhost() and ghostDist < 3:  # Only avoid ghosts when very close.
+            score -= 2 / (ghostDist + 1)  # Minimal penalty for ghost proximity.
+
+        elif not ghostState.isBraveGhost() and ghostDist < 3:  # Reward chasing scared ghosts.
+            score += 100 / (ghostDist + 1)  # Very strong reward for reaching scared ghosts.
+
+    # 3. Stronger Reward for Power Pellet Collection
+    capsules = currentGameState.getCapsules()
+    if capsules:
+        minCapsuleDist = min([manhattan(newPos, capsule) for capsule in capsules])
+        score += 60.0 / (minCapsuleDist + 1)  # Reward for moving closer to power pellets.
+
+    return score
 
 class ContestAgent(MultiAgentSearchAgent):
     """
